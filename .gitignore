@@ -9,6 +9,8 @@ out/
 /broadcast/**/dry-run/
 
 .DS_Store
+.env
 .envrc
 lcov.info
 node_modules
+.history
