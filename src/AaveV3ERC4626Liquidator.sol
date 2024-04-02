@@ -1,14 +1,23 @@
 /// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { AaveV3ERC4626 } from "yield-daddy/AaveV3ERC4626.sol";
-import { TpdaLiquidationPairFactory, ILiquidationSource } from "pt-v5-tpda-liquidator/TpdaLiquidationPairFactory.sol";
+import { AaveV3ERC4626 } from "yield-daddy/aave-v3/AaveV3ERC4626.sol";
+import {
+    TpdaLiquidationPairFactory,
+    ILiquidationSource
+} from "pt-v5-tpda-liquidator/TpdaLiquidationPairFactory.sol";
+import { TpdaLiquidationPair } from "pt-v5-tpda-liquidator/TpdaLiquidationPair.sol";
+import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
+import { IPrizePool } from "./external/interfaces/IPrizePool.sol";
 
 contract AaveV3ERC4626Liquidator is ILiquidationSource {
+    using SafeERC20 for IERC20;
 
     address public immutable creator;
     address public immutable vaultBeneficiary;
-    PrizePool public immutable prizePool;
+    IPrizePool public immutable prizePool;
     TpdaLiquidationPairFactory public immutable liquidationPairFactory;
     uint256 public immutable targetAuctionPeriod;
     uint192 public immutable targetAuctionPrice;
@@ -21,7 +30,7 @@ contract AaveV3ERC4626Liquidator is ILiquidationSource {
     constructor(
         address _creator,
         address _vaultBeneficiary,
-        PrizePool _prizePool,
+        IPrizePool _prizePool,
         TpdaLiquidationPairFactory _liquidationPairFactory,
         uint256 _targetAuctionPeriod,
         uint192 _targetAuctionPrice,
@@ -44,12 +53,12 @@ contract AaveV3ERC4626Liquidator is ILiquidationSource {
     }
 
     function addPair(address tokenOut) external {
-        if (liquidationPairs[tokenOut] != address(0)) {
+        if (address(liquidationPairs[tokenOut]) != address(0)) {
             revert("Already initialized");
         }
         liquidationPairs[tokenOut] = liquidationPairFactory.createPair(
             this,
-            prizePool.prizeToken(),
+            address(prizePool.prizeToken()),
             tokenOut,
             targetAuctionPeriod,
             targetAuctionPrice,
@@ -75,7 +84,7 @@ contract AaveV3ERC4626Liquidator is ILiquidationSource {
         uint256 amountOut
     ) external returns (bytes memory) {
         require(msg.sender == address(liquidationPairs[tokenOut]), "AaveV3ERC4626Liquidator: FORBIDDEN");
-        IERC20(tokenOut).transfer(receiver, amountOut);
+        IERC20(tokenOut).safeTransfer(receiver, amountOut);
     }
 
     /// @inheritdoc ILiquidationSource
@@ -94,6 +103,6 @@ contract AaveV3ERC4626Liquidator is ILiquidationSource {
 
     /// @inheritdoc ILiquidationSource
     function isLiquidationPair(address tokenOut, address liquidationPair) external returns (bool) {
-        return liquidationPairs[tokenOut] == liquidationPair;
+        return address(liquidationPairs[tokenOut]) == liquidationPair;
     }
 }
